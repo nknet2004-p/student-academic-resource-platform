@@ -1,11 +1,14 @@
 
 import streamlit as st
 
+
 from database import (
     initialize_database,
     create_user,
-    get_user_by_email
+    get_user_by_email,
+    update_user_profile
 )
+
 from auth import hash_password, verify_password, register_user
 from resources import (
     initialize_resource_table,
@@ -94,13 +97,46 @@ else:
     with st.sidebar:
         st.write(f"Signed in as **{user['name']}**")
         page = st.radio(
-            "Navigation",
-            ["Dashboard", "Upload Resource", "Browse Resources", "My Uploads"]
-        )
+    "Navigation",
+    ["Dashboard", "Manage Profile", "Upload Resource",
+     "Browse Resources", "My Uploads"]
+)
 
         if st.button("Logout"):
             st.session_state.user = None
             st.rerun()
+
+    if page == "Manage Profile":
+        st.header("Manage Profile")
+
+        with st.form("profile_form"):
+            full_name = st.text_input(
+                "Full name",
+                value=user["name"]
+            )
+            st.text_input(
+                "Email address",
+                value=user["email"],
+                disabled=True
+            )
+            submitted = st.form_submit_button("Save Changes")
+
+        if submitted:
+            try:
+                updated = update_user_profile(
+                    user["id"],
+                    full_name
+                )
+
+                if updated:
+                    st.session_state.user["name"] = full_name.strip()
+                    st.success("Profile updated successfully.")
+                    st.rerun()
+                else:
+                    st.error("Unable to update your profile.")
+
+            except ValueError as error:
+                st.error(str(error))
 
     if page == "Dashboard":
         st.header("Student Dashboard")

@@ -42,3 +42,17 @@ def get_user_by_email(email):
             "SELECT * FROM users WHERE email = ?",
             (email,)
         ).fetchone()
+
+def update_user_profile(user_id, full_name):
+    full_name = full_name.strip()
+
+    if not full_name:
+        raise ValueError("Full name cannot be empty.")
+
+    with get_connection() as connection:
+        cursor = connection.execute(
+            "UPDATE users SET full_name = ? WHERE id = ?",
+            (full_name, user_id)
+        )
+
+        return cursor.rowcount > 0
