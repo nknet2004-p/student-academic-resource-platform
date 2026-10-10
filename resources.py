@@ -1,7 +1,6 @@
 
 from pathlib import Path
 from uuid import uuid4
-import sqlite3
 
 from database import get_connection
 
@@ -53,6 +52,12 @@ def save_resource(
     resource_type,
     uploaded_file
 ):
+    title = title.strip()
+    description = description.strip()
+
+    if not title:
+        raise ValueError("Resource title is required.")
+
     original_filename = Path(uploaded_file.name).name
     extension = Path(original_filename).suffix.lower()
 
@@ -73,15 +78,21 @@ def save_resource(
     with get_connection() as connection:
         cursor = connection.execute("""
             INSERT INTO resources (
-                owner_id, title, description, subject, semester,
-                resource_type, original_filename, stored_filename,
+                owner_id,
+                title,
+                description,
+                subject,
+                semester,
+                resource_type,
+                original_filename,
+                stored_filename,
                 file_size
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             owner_id,
-            title.strip(),
-            description.strip(),
+            title,
+            description,
             subject,
             semester,
             resource_type,
@@ -111,6 +122,7 @@ def search_resources(
         JOIN users ON users.id = resources.owner_id
         WHERE 1 = 1
     """
+
     parameters = []
 
     if keyword.strip():
@@ -136,10 +148,13 @@ def search_resources(
         query += " AND resources.resource_type = ?"
         parameters.append(resource_type)
 
-    query += " ORDER BY resources.created_at DESC"
+    query += " ORDER BY resources.created_at DESC, resources.id DESC"
 
     with get_connection() as connection:
-        return connection.execute(query, parameters).fetchall()
+        return connection.execute(
+            query,
+            parameters
+        ).fetchall()
 
 
 def get_resource_file(stored_filename):
@@ -165,26 +180,54 @@ def increment_downloads(resource_id):
         """, (resource_id,))
 
 
+def update_resource(resource_id, owner_id, title, description, subject, semester, resource_type):
+    title = title.strip()
+    description = description.strip()
+
+    if not title:
+        raise ValueError("Resource title is required.")
+
+    with get_connection() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE resources
+            SET title = ?, description = ?, subject = ?, semester = ?, resource_type = ?
+            WHERE id = ? AND owner_id = ?
+            """,
+            (
+                title,
+                description,
+                subject,
+                semester,
+                resource_type,
+                resource_id,
+                owner_id,
+            ),
+        )
+        return cursor.rowcount > 0
 def delete_resource(resource_id, owner_id):
     with get_connection() as connection:
-        resource = connection.execute("""
+        resource = connection.execute(
+            """
             SELECT stored_filename
             FROM resources
             WHERE id = ? AND owner_id = ?
-        """, (resource_id, owner_id)).fetchone()
+            """,
+            (resource_id, owner_id),
+        ).fetchone()
 
         if resource is None:
             return False
 
         connection.execute(
             "DELETE FROM resources WHERE id = ? AND owner_id = ?",
-            (resource_id, owner_id)
+            (resource_id, owner_id),
         )
 
-        path = UPLOAD_DIR / resource["stored_filename"]
+        file_path = UPLOAD_DIR / resource["stored_filename"]
 
         try:
-            path.unlink(missing_ok=True)
+            file_path.unlink(missing_ok=True)
         except OSError:
             pass
 
