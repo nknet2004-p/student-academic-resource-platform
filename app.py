@@ -1,5 +1,4 @@
 
-import re
 import streamlit as st
 
 from database import (
@@ -7,7 +6,7 @@ from database import (
     create_user,
     get_user_by_email
 )
-from auth import hash_password, verify_password
+from auth import hash_password, verify_password, register_user
 from resources import (
     initialize_resource_table,
     save_resource,
@@ -48,30 +47,20 @@ if st.session_state.user is None:
             )
             submitted = st.form_submit_button("Create Account")
 
+        
         if submitted:
-            full_name = full_name.strip()
-            email = email.strip().lower()
+            success, message = register_user(
+                full_name,
+                email,
+                password,
+                confirm_password
+            )
 
-            if not full_name or not email or not password:
-                st.error("Please complete all required fields.")
-            elif not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-                st.error("Enter a valid email address.")
-            elif len(password) < 8:
-                st.error("Password must contain at least 8 characters.")
-            elif password != confirm_password:
-                st.error("Passwords do not match.")
-            elif get_user_by_email(email):
-                st.error("This email is already registered.")
+            if success:
+                st.success(message)
             else:
-                try:
-                    create_user(
-                        full_name,
-                        email,
-                        hash_password(password)
-                    )
-                    st.success("Account created. You can now log in.")
-                except Exception:
-                    st.error("Registration failed. Please try again.")
+                st.error(message)
+
 
     with login_tab:
         with st.form("login_form"):
